@@ -4,7 +4,7 @@ from fastapi import Depends
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
-engina = create_engine('mysql+mysqlconnector://root:@localhost/laplanduas_rental')
+engina = create_engine('mysql+mysqlconnector://root:@localhost/rental_db_olap')
 dw_session = sessionmaker(bind=engina)
 
 def get_dw():
