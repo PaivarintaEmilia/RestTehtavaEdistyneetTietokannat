@@ -4,8 +4,8 @@ from fastapi import Depends
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
-engina = create_engine('mysql+mysqlconnector://root:@localhost/rental_db_olap')
-dw_session = sessionmaker(bind=engina)
+engine = create_engine('mysql+mysqlconnector://root:@localhost/rental_db_olap')
+dw_session = sessionmaker(bind=engine)
 
 def get_dw():
     _dw = None
@@ -17,4 +17,4 @@ def get_dw():
             _dw.close()
 
 
-DW = Annotated[Session, Depends(get_dw())]
+DW = Annotated[Session, Depends(get_dw)]

@@ -32,7 +32,6 @@ async def get_recipes_weekly_by_month(dw: DW, month: int, year: int):
 
 
 # käynnistä palvelin uudestaan uvicorn main:app
-
 # funktion ja routen muuttujien tulee olla täsmälleen samat
 # dw: DW > yhteys tietokantaan
 
@@ -122,11 +121,9 @@ async def get_recipes_daily_by_month(dw: DW, year: int):
 
     return {'data': data}
 
+
+
 # 6. Selvitä missä kuussa tavaroita lisätään järjestelmään eniten valittuna vuonna
-
-
-# SELECT date_dim.month AS kuukausi, COUNT(rental_item_fact.rental_item_creation_date_key) AS tavaramaara FROM rental_item_fact INNER JOIN rental_item_dim ON rental_item_dim.item_key = rental_item_fact.rental_item_key INNER JOIN date_dim ON date_dim.date_key = rental_item_fact.rental_item_creation_date_key WHERE date_dim.year = 2002 GROUP BY kuukausi ORDER BY tavaramaara DESC LIMIT 1;
-
 
 
 @app.get('/api/rental/top-month-when-adding-items-by-year/{year}')
