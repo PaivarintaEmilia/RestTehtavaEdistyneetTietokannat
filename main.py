@@ -1,9 +1,32 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import text
+from passlib.hash import pbkdf2_sha512 as pl
 
 from db import DW
 
 app = FastAPI()
+
+# Rekisteröityminen. Luodaan endPoint, jolla saa lisättyä käyttäjän
+# DW on tietokantayhteys
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post('/api/register')
+async def register(dw: DW, req: RegisterRequest):
+    try:
+        _query_str = ("INSERT INTO users (username, password) VALUES(:username, :password)")
+        _query = text(_query_str)
+        user = dw.execute(_query, {'username': req.username, 'password': pl.hash(req.password)})
+        dw.commit()
+        return{'username': req.username, 'id': user.lastrowid}
+    except Exception as e:
+        dw.rollback()
+        print(e)
+        # Käyttäjälle tuleva virheilmoitus
+        raise HTTPException(status_code=422, detail='Error registering user')
 
 
 # määrittää routen
