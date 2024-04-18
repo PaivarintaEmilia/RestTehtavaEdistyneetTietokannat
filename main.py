@@ -1,5 +1,7 @@
+from typing import Annotated
+
 import jwt
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
 from sqlalchemy import text
 from passlib.hash import pbkdf2_sha512 as pl
@@ -20,23 +22,34 @@ class RegisterRequest(BaseModel):
 SECRET_KEY = "dkslfsmdkgfdäasfpeo053486rmt4jsdmkamedowkroi0wei3mksmfdht48jhkdmfmmf"
 
 
-# Tehdään uusi route, josta saa sisäänkirjautuneen käyttäjän tiedot
-@app.get('/api/account')
-async def get_account(dw: DW, authorization = Header(None, alias='api_key')):
+
+def require_login(dw: DW, authorization = Header(None, alias='api_key')):
     try:
-        split_header = authorization.split(' ')
-        if len(split_header) == 2 and split_header[0] == 'Bearer':
-            token = split_header[1]
-            validated = jwt.decode(token, SECRET_KEY, algorithms=['HS512'])
-            user = dw.execute(text('SELECT username FROM users WHERE id = :id'),
-                              {'id': validated['id']}).mappings().first()
-            # Jos käyttäjää ei löydy tietokannasta niin user jää nulliksi ja nostetaan virheilmoitus
-            if user is None:
-                raise HTTPException(detail='user not found', status_code=404)
-            return user
+        if authorization is not None and len(authorization.split(' ')) == 2:
+            split_header = authorization.split(' ')
+            if len(split_header) == 2 and split_header[0] == 'Bearer':
+                token = split_header[1]
+                validated = jwt.decode(token, SECRET_KEY, algorithms=['HS512'])
+                user = dw.execute(text('SELECT username FROM users WHERE id = :id'),
+                                  {'id': validated['id']}).mappings().first()
+                # Jos käyttäjää ei löydy tietokannasta niin user jää nulliksi ja nostetaan virheilmoitus
+                if user is None:
+                    raise HTTPException(detail='user not found', status_code=404)
+                return user
+        else:
+            raise HTTPException(detail='user not found', status_code=404)
 
     except Exception as e:
         raise HTTPException(detail=str(e), status_code=500)
+
+
+LoggedInUser = Annotated[dict, Depends(require_login)]
+
+
+# Tehdään uusi route, josta saa sisäänkirjautuneen käyttäjän tiedot
+@app.get('/api/account')
+async def get_account(logged_in_user = LoggedInUser):
+    return logged_in_user
 
 
 
@@ -85,7 +98,7 @@ async def hello_world():
 # 1. Lainauksien määrä valitulta kuukaudelta viikottain
 
 @app.get('/api/rental/weekly-by-month/{month}/{year}')
-async def get_recipes_weekly_by_month(dw: DW, month: int, year: int):
+async def get_rental_weekly_by_month(dw: DW, month: int, year: int, logged_in_user = LoggedInUser):
     _query_str = "SELECT date_dim.week, COUNT(*) AS transaction_count " \
                  "FROM rental_transaction_fact " \
                  "INNER JOIN date_dim ON date_dim.date_key = rental_transaction_fact.date_dim_date_key " \
@@ -110,7 +123,7 @@ async def get_recipes_weekly_by_month(dw: DW, month: int, year: int):
 # 2. Lainauksien märää valitulta kuukaudelta päivittäin
 
 @app.get('/api/rental/daily-by-month/{month}/{year}')
-async def get_recipes_daily_by_month(dw: DW, month: int, year: int):
+async def get_rental_daily_by_month(dw: DW, month: int, year: int, logged_in_user = LoggedInUser):
     _query_str = "SELECT date_dim.day, COUNT(*) AS transaction_count " \
                  "FROM rental_transaction_fact " \
                  "INNER JOIN date_dim ON date_dim.date_key = rental_transaction_fact.date_dim_date_key " \
@@ -129,7 +142,7 @@ async def get_recipes_daily_by_month(dw: DW, month: int, year: int):
 # 3. Lainauksien määrä valitulta vuodelta kuukausittain
 
 @app.get('/api/rental/monthly-by-year/{year}')
-async def get_recipes_daily_by_month(dw: DW, year: int):
+async def get_rental_monthly_by_year(dw: DW, year: int, logged_in_user = LoggedInUser):
     _query_str = "SELECT date_dim.month, COUNT(*) AS transaction_count " \
                  "FROM rental_transaction_fact " \
                  "INNER JOIN date_dim ON date_dim.date_key = rental_transaction_fact.date_dim_date_key " \
@@ -151,7 +164,7 @@ async def get_recipes_daily_by_month(dw: DW, year: int):
 
 
 @app.get('/api/rental/top-ten-items')
-async def get_recipes_daily_by_month(dw: DW):
+async def get_rental_top_ten_items(dw: DW, logged_in_user = LoggedInUser):
     _query_str = "SELECT rental_item_dim.renta_item_name, COUNT(rental_item_dim.renta_item_name) AS esiintymiskerrat " \
                  "FROM rental_item_fact " \
                  "INNER JOIN rental_item_dim ON rental_item_dim.item_key = rental_item_fact.rental_item_key " \
@@ -173,7 +186,7 @@ async def get_recipes_daily_by_month(dw: DW):
 
 
 @app.get('/api/rental/top-ten-items-by-year/{year}')
-async def get_recipes_daily_by_month(dw: DW, year: int):
+async def get_rental_top_ten_items_by_year(dw: DW, year: int,logged_in_user = LoggedInUser):
     _query_str = "SELECT rental_item_dim.renta_item_name, COUNT(rental_item_dim.renta_item_name) AS esiintymiskerrat " \
                  "FROM rental_item_fact " \
                  "INNER JOIN rental_item_dim ON rental_item_dim.item_key = rental_item_fact.rental_item_key " \
@@ -197,7 +210,7 @@ async def get_recipes_daily_by_month(dw: DW, year: int):
 
 
 @app.get('/api/rental/top-month-when-adding-items-by-year/{year}')
-async def get_recipes_daily_by_month(dw: DW, year: int):
+async def get_rental_top_month_when_adding_items_by_year(dw: DW, year: int, logged_in_user = LoggedInUser):
     _query_str = "SELECT date_dim.month AS kuukausi, COUNT(rental_item_fact.rental_item_creation_date_key) AS tavaramaara " \
                  "FROM rental_item_fact " \
                  "INNER JOIN rental_item_dim ON rental_item_dim.item_key = rental_item_fact.rental_item_key " \
