@@ -22,8 +22,21 @@ SECRET_KEY = "dkslfsmdkgfdäasfpeo053486rmt4jsdmkamedowkroi0wei3mksmfdht48jhkdmf
 
 # Tehdään uusi route, josta saa sisäänkirjautuneen käyttäjän tiedot
 @app.get('/api/account')
-async def get_account(authorization = Header(None)):
-    return authorization
+async def get_account(dw: DW, authorization = Header(None, alias='api_key')):
+    try:
+        split_header = authorization.split(' ')
+        if len(split_header) == 2 and split_header[0] == 'Bearer':
+            token = split_header[1]
+            validated = jwt.decode(token, SECRET_KEY, algorithms=['HS512'])
+            user = dw.execute(text('SELECT username FROM users WHERE id = :id'),
+                              {'id': validated['id']}).mappings().first()
+            # Jos käyttäjää ei löydy tietokannasta niin user jää nulliksi ja nostetaan virheilmoitus
+            if user is None:
+                raise HTTPException(detail='user not found', status_code=404)
+            return user
+
+    except Exception as e:
+        raise HTTPException(detail=str(e), status_code=500)
 
 
 
