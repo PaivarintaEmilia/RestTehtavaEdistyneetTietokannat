@@ -3,3 +3,4 @@ mysql-connector-python
 uvicorn[standard]
 sqlalchemy
 passlib
+pyjwt

@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+import jwt
+from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
 from sqlalchemy import text
 from passlib.hash import pbkdf2_sha512 as pl
@@ -13,6 +14,39 @@ app = FastAPI()
 class RegisterRequest(BaseModel):
     username: str
     password: str
+
+
+# Secret key tokenia varten
+SECRET_KEY = "dkslfsmdkgfdäasfpeo053486rmt4jsdmkamedowkroi0wei3mksmfdht48jhkdmfmmf"
+
+
+# Tehdään uusi route, josta saa sisäänkirjautuneen käyttäjän tiedot
+@app.get('/api/account')
+async def get_account(authorization = Header(None)):
+    return authorization
+
+
+
+# Luodaan sisäänkirjautuminen
+@app.post('/api/login')
+async def login(dw: DW, req: RegisterRequest):
+    # 1. Haetaan käyttäjä usernamen perusteella
+    _query_str = ("SELECT * FROM users WHERE username = :username")
+    _query = text(_query_str)
+    user = dw.execute(_query, {'username': req.username}).mappings().first() # First, koska tulee vain yksi
+    # Nostetaan poikkeus, jos usernamea ei löydy tietokannasta
+    if user is None:
+        raise HTTPException(detail='user not found', status_code=404)
+    # Jos username löytyy, niin verrataan sen salasanaa käyttäjän syöttämään salasanaan
+    password_correct = pl.verify(req.password, user['password'])
+    # Jos salasana on ok
+    if password_correct:
+        token = jwt.encode({'id': user['id']}, SECRET_KEY, algorithm='HS512')
+        return {'token': token}
+    # Jos salasana ei ole ok
+    raise HTTPException(detail='password is incorrect', status_code=404)
+
+
 
 @app.post('/api/register')
 async def register(dw: DW, req: RegisterRequest):
